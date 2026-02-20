@@ -1,0 +1,8 @@
+**/bin
+**/obj
+.vs/
+Properties/
+appsettings.Development.json
+**/Dockerfile
+hello-docker.csproj.user
+**/.dockerignore

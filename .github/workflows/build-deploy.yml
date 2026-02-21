@@ -1,0 +1,66 @@
+name: user-demo CI 
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  AZURE_WEBAPP_NAME: user-demo
+  AZURE_WEBAPP_PACKAGE_PATH : "DockerSolution/hello-docker/publish/"
+  DOTNET_VERSION: "9.x"
+  SOLUTION_PATH:  "DockerSolution.sln"
+  API_PROJECT_PATH: hello-docker/hello-docker.csproj
+  PUBLISH_DIR:  "./publish"
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION}}
+      
+      - name: restore
+        run: dotnet restore ${{ env.SOLUTION_PATH}}
+
+      - name: build
+        run : dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      - name : test
+        run  : dotnet test  ${{ env.SOLUTION_PATH }} --configuration Release --no-build --verbosity normal
+
+      - name: Publish
+        run : dotnet publish ${{ env.API_PROJECT_PATH }} --configuration Release --no-restore --no-build --property:PublishDir=${{ env.PUBLISH_DIR}}
+
+      - name: Publish Artifacts 
+        uses: actions/upload-artifact@v4
+        with:
+          name: webapp
+          path: ${{ env.AZURE_WEBAPP_NAME }}
+
+  deploy:
+    name: Deploy to Azure 
+    runs-on: ubuntu-latest
+    needs: [build-and-test]
+
+    steps:
+      - name: Download artifact from build job 
+        uses: actions/download-artifact@v4
+        with:
+          name: webapp
+          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH}}
+
+      - name: Deploy
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE}}
+          package: "${{ env.AZURE_WEBAPP_PACKAGE_PATH}}"
+       

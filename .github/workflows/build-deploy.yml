@@ -1,4 +1,4 @@
-name: user-demo CI 
+name: user-demo CI
 
 on:
   workflow_dispatch:
@@ -8,11 +8,10 @@ on:
 
 env:
   AZURE_WEBAPP_NAME: user-demo
-  AZURE_WEBAPP_PACKAGE_PATH : "DockerSolution/hello-docker/publish/"
   DOTNET_VERSION: "9.x"
-  SOLUTION_PATH:  "DockerSolution.sln"
-  API_PROJECT_PATH: hello-docker/hello-docker.csproj
-  PUBLISH_DIR:  "./publish"
+  SOLUTION_PATH: "DockerSolution.sln"
+  API_PROJECT_PATH: "hello-docker/hello-docker.csproj"
+  PUBLISH_DIR: "./publish"
 
 jobs:
   build-and-test:
@@ -25,42 +24,41 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION}}
-      
-      - name: restore
-        run: dotnet restore ${{ env.SOLUTION_PATH}}
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: build
-        run : dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+      - name: Restore
+        run: dotnet restore ${{ env.SOLUTION_PATH }}
 
-      - name : test
-        run  : dotnet test  ${{ env.SOLUTION_PATH }} --configuration Release --no-build --verbosity normal
+      - name: Build
+        run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ${{ env.SOLUTION_PATH }} --configuration Release --no-build --verbosity normal
 
       - name: Publish
-        run : dotnet publish ${{ env.API_PROJECT_PATH }} --configuration Release --no-restore --no-build --property:PublishDir=${{ env.PUBLISH_DIR}}
+        run: dotnet publish ${{ env.API_PROJECT_PATH }} --configuration Release --output ${{ env.PUBLISH_DIR }}
 
-      - name: Publish Artifacts 
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: webapp
-          path: ${{ env.AZURE_WEBAPP_NAME }}
+          path: ${{ env.PUBLISH_DIR }}
 
   deploy:
-    name: Deploy to Azure 
+    name: Deploy to Azure
     runs-on: ubuntu-latest
-    needs: [build-and-test]
+    needs: build-and-test
 
     steps:
-      - name: Download artifact from build job 
+      - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: webapp
-          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH}}
+          path: ./publish
 
-      - name: Deploy
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE}}
-          package: "${{ env.AZURE_WEBAPP_PACKAGE_PATH}}"
-       
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./publish
